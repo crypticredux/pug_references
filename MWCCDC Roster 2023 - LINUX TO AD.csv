@@ -1,0 +1,50 @@
+,ACTIVE DIRECTORY
+,Get machine hostname:
+,cat /etc/hostname
+,
+,Specify DC name in /etc/hosts
+,echo [DC IP] [DC hostname].db.local [DC hostname] >> /etc/hosts
+,
+,Set DNS server. Add DC IP to /etc/resolv.conf
+,sudo nano /etc/resolvconf/resolv.conf.d/head
+,
+,Change to align w/ network:
+,domain domain.com
+,search domain.com
+,nameserver <domain controller IP address>
+,nameserver 8.8.8.8
+,
+,Restart network service:
+,/etc/init.d/networking restart
+,
+,Configure Time Sync (NTP)
+,sudo apt install ntp
+,sodo nano /etc/ntp.conf
+,
+,Modify to communicate w/ DC:
+,# You do need to talk to an NTP server or two (or three).
+,server dc.domain.com
+,
+,Restart ntp:
+,sudo /etc/init.d/ntp restart
+,
+,Install Kerberos client:
+,sudo apt install krb5-user libpam-krb5 libpam-ccreds auth-client-config
+,
+,"Install Samba, Winbind"
+,sudo apt install samba winbind
+,
+,"Edit /etc/krb6.conf to add full domain name, DC name, and realm parameter. Do NOT leave and comments (tagged #) in config file"
+,
+,Edit the /etc/samba/smb.conf file to add short domain name and full domain name. Do NOT leave and comments (tagged #) in config file
+,
+,Enter domain:
+,net ads join -U Administrator
+,
+,Verify auth successful using existing user on AD
+,kinit [USER]@[DOMAIN.COM] <<<-- Domain portion all uppercase
+,
+,Ensure ticket created:
+,klist
+,
+,^^^ Done. Linux machine in AD.

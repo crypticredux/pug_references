@@ -1,0 +1,367 @@
+IDENTIFY,VULN SCANS,,
+,NMAP,,
+,,network ping sweep,nmap -sn -PE <IP ADDRESS OR RANGE>
+,,scan/show open ports,nmap --open <IP ADDRESS OR RANGE>
+,,get open services,nmap -sV <IP ADDRESS>
+,,scan 2 common TCP ports,"nmap -p ##,## <IP ADDRESS OR RANGE>"
+,,scan common UDP port,nmap -sU -p 53 <IP ADDRESS OR RANGE>
+,,scan specific TCP/UDP ports,"nmap -v -Pn -sU -sT -p U:##,##,…,T:##,##,… <IP ADDRESS>"
+,,,
+,NESSUS,,
+,,basic scan,nessus -q -x -T html <NESSUS SERVER IP ADDR> <NESSUS SERVER PORT 1241> <ADMIN ACCT> <ADMIN PWD> <FILE WITH TARGETS>.txt <RESULTS FILE NAME>.html
+,,,nessus [-vnh] [-c .rcfile] [-V] [-T <format>]
+,,batch-mode,nessus -q [-pPS] <HOST> <PORT> <USER NAME> <PASSWORD> <TARGETS-FILE> <RESULTS FILE>
+,,report conversion,nessus -i in.[nsr|nbe] -o out.[xml|nsr|nbe|html|txt]
+,,,
+,,,
+,,,
+,,Net view scan,smbtree -b
+,,,smbtree -D
+,,,smbtree -S
+,,,
+,,View open SMB shares,smbclient -L <HOST NAME>
+,,,smbstatus
+,,,
+,,Basic ping scan,"for ip in $(seq 1 254); do ping -c 1 172.20.241.$ip>/dev/null; [$? -eq 0 ] && echo ""172.20.241.$ip UP"" || : ; done"
+,,,^^ modify IP (172.20.241.$ip) to match the network/subnet you're on!
+,,,
+,View DHCP lease logs,,
+,,Red Hat,cat /var/lib/dhcpd/dhcpd.leases
+,,Ubuntu,grep -Ei 'dhcp' /var/log/syslog.1
+,,,tail -f dhcpd.log
+,,,
+,,,
+,,Start DNS logging,rndc querylog
+,,View DNS logs,tail -f /var/log/messages | grep named
+,,,
+,,Basic nbtstat scan,nbtscan <IP ADDR OR RANGE>
+,,,
+,,,
+PROTECT,,,
+,DISABLE / STOP SERVICES,,
+,,Services info,service --status-all
+,,,ps-ef
+,,,ps-aux
+,,,
+,,Get list of upstart jobs,initctl list
+,,,
+,,Example service start/stop,/etc/init.d/apache2 [ start | restart | stop (until reboot) ]
+,,,service mysql [ start | restart | stop (until reboot) ]
+,,,
+,,List all upstart services,ls /etc/init/*.conf
+,,,
+,,Show if process managed by upstart & PID,status <SERVICE>
+,,,ex: status ssh
+,,,
+,,If not managed by upstart,update-rc.d apache2 disable
+,,,service apache2 stop
+,,,
+,,List services,systemctl list-units -all --type service
+,,Disable service using systemctl,ssytemctl disable <SERVICE NAME>
+,,,
+,,,
+,,Export/backup existing iptables rules,iptables-save > firewall.out
+,,Edit backup file,vi firewall.out
+,,,nano firewall.out
+,,,
+,,Apply/Restore iptables rules,iptables-restore < firewall.out
+,,,
+,Example iptables commands,,
+,,Drop from IP,iptables -A INPUT -s <IP ADDR> -j DROP
+,,Drop from RANGE,iptables -A INPUT -s <IP RANGE WITH CIDR> -j DROP
+,,"Drop from PORT, specific IP",iptables -A INPUT -p tcp --dport ssh -s <IP ADDR> -j DROP
+,,"Drop from PORT, all Ips",iptables -A INPUT -p tcp --dport ssh -j DROP
+,,,
+,,Block all connections,iptables-policy INPUT DROP
+,,,iptables-policy OUTPUT DROP
+,,,iptables-policy FORWARD DROP
+,,,
+,,Log all denied iptables rules,"iptables -I INPUT 5 -m limit --limit 5/min -j LOG --log-prefix ""iptables denied: "" --log-level 7"
+,,,
+,Save iptables rules,,
+,,Ubuntu,/etc/init.d/iptables save
+,,,/sbin/service iptables save
+,,RedHat/CentOS,/etc/init.d/iptables save
+,,,/sbin/iptables-save
+,,,
+,,List all iptables rules,iptables -L
+,,,
+,,Flush all current iptables rules,iptables -F
+,,,
+,,Start/Stop iptables,service iptables start
+,,,service iptables stop
+,,,
+,,Start/Stop UFW service,ufw enable
+,,,ufw disable
+,,,
+,,Start/Stop UFW logging,ufw logging on
+,,,ufw logging off
+,,,
+,,Backup all current ufw rules,"cp /lib/ufw/{user.rules, user6.rules} /<BACKUP LOCATION>"
+,,,"cp /lib/ufw/{user.rules,user6.rules} ./"
+,,,
+,Example ufw commands,,
+,,Get ufw status,ufw status verbose
+,,Delete rule,ufw delete <RULE#>
+,,Allow ALL from IP ADDR,ufw allow for <IP ADDR>
+,,Port allow all Ips to 80/TCP,ufw allow all 80/tcp
+,,Port allow all Ips to SSH,ufw allow all ssh
+,,Port block bad IP,ufw deny from <BAD IP ADDR> proto udp to any port 443
+,,,
+,,,
+,PASSWORD CHANGE,,passwd <USERNAME>
+,,,sudu su passwd
+,,,
+,HOSTS FILE,,
+,,Add malicious domain and route to localhost,
+,,,echo 127.0.0.1 <MALICIOUS DOMAIN> >> /etc/hosts
+,,,
+,,After adding malicious domain to hosts… is it working?,
+,,,ping -c 1 <MALICIOUS DOMAIN>
+,,,
+,,Ubuntu/Debian flush DNS cache,
+,,,c/init.d/dns-clean start
+,,,
+,,Flush nscd DNS cache (4 ways),
+,,,c/init.d/nscd restart
+,,,service nscd restart
+,,,service nscd reload
+,,,nscd -i hosts
+,,,
+,,,
+DETECT,NETWORK MONITORING,,
+,TCPDUMP,Find top talkers after 1000 packets,
+,,,tcpdump -nn -c 1000 | awk '{print $3}' | cut 0d. -f1-4 | sort -n | uniq -c | sort -nr
+,,,
+,,"Grab traffic that contains the word ""pass""",
+,,,tcpdump -n -A -s0 | grep pass
+,,,
+,,Grab clear text passwords,
+,,,tcpdump -n -A -s0 port http or port ftp or port smtp or port imap or port pop3 | egrep -I 'pass=|pwd=|log=|login=|user=|username=|pw=|passw=|passwd=|password=|pass:|user:|username:|password:|login:|pass|user ' --color=auto --line-buffered -B20
+,,,
+,,Look for suspicious/self-signed SSL certs:,
+,,,tcpdump -s 1500 -A '(tcp[((tcp[12:1] & 0xf0) >> 2)+5:1] = 0x01) and (tcp[((tcp[12:1] & 0xf0) >> 2):1] = 0x16)'
+,,,
+,TSHARK,Get top talkers by IP dst,
+,,,tshark -n -c 150 | awk '{print $4}' | sort -n | uniq -c | sort -nr
+,,,
+,NETCAT,Listen for scanning threats,
+,,,nc -v -k -l 80
+,,,nc -v -k -l 443
+,,,nc -v -k -l 3389
+,,,
+,PASSIVE DNS MONITORING,,
+,,Use dnstop to monitor DNS reqs,
+,,,apt-get update
+,,,apt-get install dnstop
+,,,dnstop -l 3 <NETWORK INTERFACE TO BE MONITORED>
+,,,Hit '2' key to show query names
+,,,
+,,,
+,Ubuntu,Auth Log,
+,,,tail /var/log/auth.log
+,,,"grep -I ""fail"" /var/log/auth.log"
+,,,
+,,User Logins,
+,,,tail /var/
+,,,
+,,Cron activity,
+,,,grep -i cron /var/log/syslog
+,,,
+,,Sudo activity,
+,,,grep -i sudo /var/log/auth.log
+,,,
+,Apache,404 Errors,
+,,,"grep 404 <APACHE LOG FILE NAME> | grep -v -E ""favicon.ico|robots.txt"""
+,,,
+,,Files requested,
+,,,head access_log | awk '{print $&}'
+,,,
+,,Monitory for NEW FILES every 5min,
+,,,watch -n 300 -d ls -lR /<WEB DIRECTORY>
+,,,
+,,Where is traffic coming from,
+,,,"cat <LOG FILE NAME> | fgrep -v <YOUR DOMAIN> | cut -d\"" -f4 | grep -v ^-"
+,,,
+,,Monitor TCP connections every 5 sec:,
+,,,netstat -ac 5 | grep tcp
+,,,
+,,"Install audit framework, review syscalls/events",
+,,,apt-get install auditd
+,,,"auditctl -a exit,always -S execve"
+,,,ausearch -m execve
+,,,
+,,Check audit report,
+,,,aureport
+,,,
+RESPOND,LIVE TRIAGE,,
+,SYSTEM INFORMATION,,
+,,,uname -a
+,,,uptime
+,,,timedatectl
+,,,mount
+,,,echo $PATH
+,,,
+,USER INFORMATION,,
+,,View logged in users,
+,,,w
+,,,
+,,Show if user has logged in remotely,
+,,,lastlog
+,,,lastlog
+,,,
+,,View failed logins,
+,,,faillog -a
+,,,
+,,View local user accts,
+,,,cat /etc/passwd
+,,,cat /etc/shadow
+,,,
+,,View local groups,
+,,,cat /etc/group
+,,,
+,,View sudo access users,
+,,,cat /etc/sudoers
+,,,
+,,View accts w/ UID 0,
+,,,"awk -F: '($3 == ""0"") {print}' /etc/passwd"
+,,,egrep ':0+' /etc/passwd
+,,,
+,,,^^^ Any acct OTHER than root: DELETE
+,,,
+,,View root auth SSH key auths,
+,,,cat /root/.ssh/authorized_keys
+,,,
+,,List of files opened by <USERNAME>,
+,,,lsof -u <USERNAME>
+,,,
+,,View root user bash history,
+,,,cat /root/.bash_history
+,,,
+,NETWORK INFORMATION,,
+,,View network interfaces,
+,,,ifconfig
+,,,
+,,View network connections,
+,,,netstat -antup
+,,,netstat -plantux
+,,,
+,,View listening ports,
+,,,netstat -nap
+,,,
+,,View routes,
+,,,route
+,,,
+,,View arp table,
+,,,arp -a
+,,,
+,,List of processes listening on ports,
+,,,lsof -i
+,,,
+,SERVICE INFORMATION,,
+,,View running processes,
+,,,ps -aux
+,,,
+,,List of load modules,
+,,,lsmod
+,,,
+,,List of open files,
+,,,lsof
+,,,
+,,"List of open files, using the network",
+,,,"lsof -nPi | cut -f 1 -d "" "" | uniq | tail -n +2"
+,,,
+,,List of open files on specific service/process,
+,,,lsof -c <SERVICE NAME>
+,,,
+,,Get open files of specific PID,
+,,,lsof -p <PID>
+,,,
+,,List unlinked processes running,
+,,,lsof +L1
+,,,
+,,Get path of suspicious process ID,
+,,,ls -al /proc/<PID>/exe
+,,,
+,,"Monitor logs, real time",
+,,,less +F /var/log/messages
+,,,
+,,List services,
+,,,chkconfig --list
+,,,
+,"POLICY, PATCH AND SETTINGS INFO",,
+,,,cat /etc/pam.d/common*
+,,,
+,AUTORUN & AUTOLOAD INFO,,
+,,List cron jobs,
+,,,crontabs -l
+,,,
+,,List cron jobs by root and other UID 0 accts,
+,,,crontab -u root -l
+,,,
+,,Review for unusual cronjobs,
+,,,cat /etc/crontab
+,,,ls /etc/cron.*
+,,,
+,LOGS,,
+,,View root user cmd history,
+,,,cat /root/.*history
+,,,
+,,View last logins,
+,,,last
+,,,
+,"FILES, DRIVES, SHARES INFO",,
+,,Dir listing for /etc/init.d,
+,,,ls -la /etc/init.d
+,,,
+,,Find immutable files,
+,,,"lsattr -R / | grep ""\-i-"""
+,,,
+,,Dir list for /root,
+,,,ls -la /root
+,,,
+,,Files recently modified in curr dir,
+,,,ls -alt | head
+,,,
+,,Find world writeable files,
+,,,find / -xdev -type d \( -perm -002 -a ! -perm -1000 \) -print
+,,,
+,,Find recent created files,
+,,,find / -newermt <YYYY>-<MM>-<DD>q
+,,,
+,,Files w/ no user owner,
+,,,find / -nouser
+,,,
+,,Run chkrootkit,
+,,,apt install chkrootkit
+,,,chkrootkit
+,,,
+,,Run rkhunter,
+,,,apt install rkhunter
+,,,rkhunter --update
+,,,rkhunter -check
+,,,
+,,Run tiger,
+,,,apt install tiger
+,,,tiger
+,,,less /var/log/tiger/security.report.*
+,,,
+,,Run lynis,
+,,,apt install lynis
+,,,lynis audit system
+,,,more /var/logs/lynis.log
+,,,
+,,,
+RECOVER,PATCHING,,
+,,,apt/yum update
+,,,apt/yum upgrade
+,,,apt/yum dist-upgrade
+,,,
+,,KILL MALWARE,
+,,,kill <MALICIOUS PID>
+,,,killall -9 -I <PROCESS NAME>
+,,,
+,,Remove malware execute ability,
+,,,chmod -x /usr/sbin/<SUSPICIOUS FILE NAME>
+,,,mkdir /home/quarantine
+,,,mv /usr/sbin/<SUSPICIOUS FILE NAME> /home/quarantine

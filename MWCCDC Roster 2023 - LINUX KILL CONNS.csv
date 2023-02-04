@@ -1,0 +1,28 @@
+,KILL REMOTE CONNECTIONS
+,check session
+,w
+,
+,using a pts session? Use:
+,find /proc -maxdepth 2 -name environ -exec sh -c 'grep -v /dev/pts $0 | grep -av /pts/<strong>#</strong> &gt;/dev/null' {} \; -print | cut -d/ -f3 | xargs kill -9
+,
+,not using a pts session? Use:
+,find /proc -maxdepth 2 -name environ -exec grep /dev/pts {} \; | cut -d/ -f3 | xargs kill -9
+,
+,KILL ESTABLISHED CONNECTIONS
+,netstat -apunt | grep STAB | awk '{print $7}' | cut -d/ -f1 | xargs kill -9
+,
+,KILL BACKDOORS
+,"find /proc -maxdepth 2 -name cmdline -exec egrep ""/bin/[a-z]+?sh"" {} \; | cut -d/ -f3 | xargs kill -9"
+,
+,
+,
+,"What programs have what files open, who opened them?"
+,lsof -nPi
+,
+,
+,Any local pts sessions running?
+,who | grep -v
+,
+,
+,"If NO pts sessions, kill:"
+,who -u | grep pts | awk '{print $6}' | xargs kill

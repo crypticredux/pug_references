@@ -1,0 +1,530 @@
+INITIAL,PROCESSES,# display running processes,
+,,,ps aux
+,,,
+INITIAL,PROCESSES,# display the running processes in top,
+,,,top -b -n 1
+,,,
+INITIAL,CRON,# check running crons,
+,,,crontab -l
+,,,ls -al /etc/cron* /etc/at*
+,,,"cat /etc/cron* /etc/at* /etc/anacrontab /var/spool/cron/crontabs/root 2>/dev/null | grep -v ""^#"""
+,,,
+INITIAL,CONNECTIONS,# show current connections,
+,,,netstat -tapen
+,,,
+INITIAL,PORTS,"# get open ports (centos, fedora, red hat)",
+,,,ss -nutlp or netstat -tulnp or lsof -i
+,,,
+,,,
+ONGOING,SPLUNK,"INSTALL SPLUNK FORWARDER (red hat, centos, fedora)",
+,,,DOWNLOAD RPM FILE
+,,,RENAME IT FOR SANITY
+,,,"RUN ""sudo rpm -I <SPLUNK FORWARDER FILE NAME>.rpm"
+,,,Navigate to /opt/splunkforwarder
+,,,"RUN: su splunk -c ""/opt/splunkforwarder/bin/splunk start --accept-license"""
+,,,Create a LOCAL splunk admin on the machine (team agreed upon username/password)
+,,,RUN: /opt/splunkforwarder/bin/splunk enable boot-start -user <SPLUNK ADMIN NAME>
+,,,
+ONGOING,NETWORK,Get network information,
+,,,"#Hostname, hosts and DNS
+ cat /etc/hostname /etc/hosts /etc/resolv.conf
+ dnsdomainname
+ 
+ #Content of /etc/inetd.conf & /etc/xinetd.conf
+ cat /etc/inetd.conf /etc/xinetd.conf
+ 
+ #Interfaces
+ cat /etc/networks
+ (ifconfig || ip a)
+ 
+ #Neighbours
+ (arp -e || arp -a)
+ (route || ip n)
+ 
+ #Iptables rules
+ (timeout 1 iptables -L 2>/dev/null; cat /etc/iptables/* | grep -v ""^#"" | grep -Pv ""\W*\#"" 2>/dev/null)
+ 
+ #Files used by network services
+ lsof -i"
+,,,
+,,,
+,,,#Check network services w/ open ports
+,,,(netstat -punta || ss --ntpu)
+,,,"(netstat -punta || ss --ntpu) | grep ""127.0"""
+,,,
+ONGOING,FILES,Get list of files modified in past N minutes,
+,,,find /directory/path/ -mmin -N -ls
+,,,ex: find /var/www/html/ -mmin -20 -ls
+,,,
+MISC,TIMERS,check timers,
+,,,systemctl list-timers --all
+,,,
+MISC,PWD,Get full directory path from root to current location,
+,,,pwd -P
+,,,
+ONGOING,SSH,SSH Generate Keys,
+,,,ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key
+,,,ssh-keyget -t rsa -f /etc/ssh/ssh_host_rsa_key
+,,,sudo /etc/init.d/ssh start
+,,,sudo update-rc.d ssh defaults
+,,,
+ONGOING,FIREWALL,Protect against port scanners,
+,,,create ipset lists
+,,,ipset create port_scanners hash:ip family inet hashsize 32768 maxelem 65536 timeout 600
+,,,"ipset create scanned_ports hash:ip,port family inet hashsize 32768 maxelem 65536 timeout 60"
+,,,
+,,,create iptable rules
+,,,iptables -A INPUT -m state --state INVALID -j DROP
+,,,"iptables -A INPUT -m state --state NEW -m set ! --match-set scanned_ports src,dst -m hashlimit --hashlimit-above 1/hour --hashlimit-burst 5 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 10000 -j SET --add-set port_scanners src --exist"
+,,,iptables -A INPUT -m state --state NEW -m set --match-set port_scanners src -j DROP
+,,,"iptables -A INPUT -m state --state NEW -j SET --add-set scanned_ports src,dst"
+,,,
+,,,
+INITIAL,SECURITY,Use chpasswd to increase SHA rounds needed to crack a password,
+,,,sudo chpasswd -s 100000 -c SHA512 <<< username:password; history -c
+,,,
+,,,sudo /etc/login.defs <--- increase rounds
+,,,
+INITIAL,GRUB,Set bootloader password,
+,,,sudo boot/grub/grub.conf
+,,,password --md5 CB1BC5A0374A603FB5E1773B616FD204
+,,,
+INITIAL,TELNET,Remove,
+,,,apt remove telnet
+,,,
+ONGOING,LOGS,Command history files,
+,,,.bash_history
+,,,.sh_history
+,,,.history
+,,,
+ONGOING,CRON,Check scheduled Cron jobs,
+,,,at
+,,,ls -la /var/spool/cron/atjobs (cat each job)
+,,,ls -la /var/spool/cron/atspool (cat each job)
+,,,cat /etc/crontab
+,,,
+,,,Check also:
+,,,/etc/cron.daily
+,,,/etc/cron.hourly
+,,,/etc/cron.weekly
+,,,/etc/cron.monthly
+,,,
+,,,more /etc/crontab
+,,,ls /etc/cron.*
+,,,ls /var/at/jobs
+,,,
+,,,cat /etc/anacrontab
+,,,
+ONGOING,CRON,Get cron user permissions,
+,,,cat /etc/cron.allow
+,,,cat /etc/cron.deny
+,,,
+ONGOING,LOGS,Check if system is logging,
+,,,cat /etc/syslog.conf
+,,,cat /etc/syslog-ng/syslog-ng.conf
+,,,
+ONGOING,SYSTEM,Verify integrity of normally installed software,
+,,,rpm -Va
+,,,
+,,,
+ONGOING,NETWORK,Detect DNS/IP addr changes,
+,,,tcpdump -n -r pcap 'dup port 53' | grep -I <DNS records>
+,,,
+,,,"DNS records: A, AAAA, CNAME, MX, PTR, etc"
+,,,
+ONGOING,NETWORK,Detect MAC addr manip,
+,,,"tcpdump -e -n -r pcap 'ip' | cut -f 2,14 -d ' ' | sort | uniq -c"
+,,,tcpdump -e -r pcap | cut -f 2 -d ' ' | sort | uniq -c
+,,,
+ONGOING,NETWORK,Detect packet fragmentation,
+,,,"tcpdump -nn -r pcap ""ip[6] & 0x20 != 0 or ip[6:2] & 0x1fff != 0"""
+,,,
+ONGOING,NETWORK,Detect top talkers,
+,,,"tcpdump -tnn -r pcap 'ip' | awk -F ""."" '{print $1"".""$2"".""$3"".""$4""}' | sort | uniq -c | sort -nr (high to low)"
+,,,
+ONGOING,NETWORK,Detect ICMP errors,
+,,,tcpdump -X -n -r pcap icmp
+,,,
+ONGOING,NETWORK,Detect ICMP traffic,
+,,,tcpdump -r pcap 'icmp'
+,,,
+ONGOING,NETWORK,Detect TCP resets,
+,,,tcpdump -r pcap 'tcp[13] & 4!=0'
+,,,
+ONGOING,SSH,Status of SSH,
+,,,systemctl status ssh.service
+,,,
+ONGOING,SSH,Show active SSH connections,
+,,,ss -n -o state established '( dport = :22 or sport = :22 )'
+,,,
+ONGOING,SSH,Backup SSH,
+,,,cp /etc/ssh/sshd_config /root/sshd_config
+,,,
+ONGOING,MONITOR,,
+,,.bash_history,
+,,~/.ssh/authorized_keys,
+,,lsof -nPi / netstat -ano,
+,,,
+,,,
+,,Find all 'immutable' files,
+,,,find . | xargs -I file lsattr -a file 2>/dev/null | grep '^....i'
+,,,chattr -i file' to change it back
+,,,"Doing this on / takes a long time, point it where it counts: /etc/, ~/, /tmp/ etc.. etc.."
+,,,
+,,Find/Know all SetUID binaries,
+,,,Watch for new ones
+,,,
+,,Monitor for changes:,
+,,,"/tmp , ~/.ssh (root and home), /etc/, /etc/passwd, /etc/shadow, /etc/sudoers"
+,,,Check .hidden directories as well
+,,,
+,,,tail -f /var/log/syslog
+,,,tail -f /var/log/auth.log | grep Failed
+,,,
+INITIAL,PASSWORD,Set password rules,
+,,,etc/pam.d/common-password
+,,,password requisite pam_cracklib.so minlength=14 lcredit=1 ucredit=1 dcredit=1 ocredit=1 difok=4
+,,,
+,,,/etc/login.defs
+,,,PASS_MAX_DAYS = 2
+,,,PASS_MIN_DAYS = 0
+,,,PASS_WARN_AGE = 1
+,,,
+ONGOING,SERVICES,Disable service,
+,,,systemctl disable <SERVICE>
+,,,
+ONGOING,WORLD,,
+,,Detect all world writeable files,
+,,,find /dir -xdev -type d \( -perm -0002 -a ! -perm -1000 \) -print
+,,,"check any world writeable folders in the different service directories they set up, ftproot, webroot (/var/www/html/upload, etc). /dev/shm and /tmp are generic."
+,,,
+ONGOING,APACHE,Secure Apache/Web server,
+,,,sudo /etc/apache2/apache2/conf
+,,,
+,,,ServerTokens Prod
+,,,ServerSignature Off
+,,,Header always unset X-Powered-By
+,,,TraceEnable Off
+,,,
+ONGOING,CLEAN UP,Run frequently,
+,,,sudo rm -rf /dev/shm/* && rm -rf /tmp/*
+,,,
+,,,
+MISC,FILETYPE,Find file by type,
+,,,find . -name '*.<FILETYPE>
+,,,
+ONGOING,NETSTAT,Get # of open connections by IP,
+,,,netstat -ntu | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -n
+,,,
+INITIAL,WEB,Harden,
+,,,yum install selinux-policy-targeted selinux-polict-devel -y
+,,,
+,,,
+ONGOING,DELETE USER,Debian/Ubuntu,
+,,,deluser --remove-home <USERNAME>
+,,,
+,,Centos/Fedora,
+,,,userdel -r <USERNAME>
+,,,
+ONGOING,GROUP ADD,,
+,,,groupadd <GROUP NAME>
+,,,
+ONGOING,ADD USER TO GROUP,,usermod -aG <GROUP NAME> <USERNAME>
+,,,
+ONGOING,DELETE USER FROM GROUP,,
+,,,deluser <USERNAME> <GROUP>
+,,,or
+,,,"usermod -G """" <USERNAME> <--- leaves user a member of only their original/primary group"
+,,,
+ONGOING,CHANGE GROUP/OWNERSHIP OF DIRECTORY,,
+,,,sudo chown -R <USERNAME>:<GROUP NAME> <DIRECTORY PATH>
+,,,sudo chmod -R og-rwx <DIRECTORY PATH>
+,,,
+,,,700 = it exists… that's all you get
+,,,000 = not even root can touch it
+,,,744 = read only
+,,,"755 = standard, file owner has rwx, others have rx only"
+,,,
+INITIAL,ROOT,Restrict,
+,,,"sudo echo ""tty1"" > /etc/securetty"
+,,,chmod 700 /root
+,,,
+,,,
+INITIAL,PASSWORDS,From MD5 encryption to SHA512,
+,,,sudo authconfig --passalgo=sha512 --update
+,,,
+ONGOING,LOGINS,Kick idle users,
+,,,"sudo echo ""readonly TMOUT=120"" >> /etc/profile.d/os-security.sh && sudo echo ""readonly HISTFILE"" >> /etc/profile.d/os-security.sh && sudo chmod +x /etc/profile.d/os-security.sh"
+,,,
+INITIAL,ROOT,Root user timeout,
+,,,sudo nano /etc/profiles
+,,,
+,,,Add line: [ $UID -eq 0 ] && TMOUT=240
+,,,
+INITIAL,ROOT,Change user/group permissions,
+,,,
+,,,sudo chown root:root /etc/anacrontab
+,,,sudo chown root:root /etc/crontab
+,,,sudo chown root:root /etc/cron.hourly
+,,,sudo chown root:root /etc/cron.daily
+,,,sudo chown root:root /etc/cron.weekly
+,,,sudo chown root:root /etc/cron.monthly
+,,,sudo chown root:root /etc/cron.d
+,,,sudo chown root:root /etc/passed
+,,,sudo chown root:root /etc/group
+,,,sudo chown root:root /etc/shadow
+,,,sudo chown root:root /etc/gshadow
+,,,sudo chmod og-rwx /etc/anacrontab
+,,,sudo chmod og-rwx /etc/crontab
+,,,sudo chmod og-rwx /etc/cron.hourly
+,,,sudo chmod og-rwx /etc/cron.daily
+,,,sudo chmod og-rwx /etc/cron.weekly
+,,,sudo chmod og-rwx /etc/cron.monthly
+,,,sudo chmod og-rwx /etc/cron.d
+,,,sudo chmod og-rwx /etc/passed
+,,,sudo chmod og-rwx /etc/group
+,,,sudo chmod og-rwx /etc/shadow
+,,,sudo chmod og-rwx /etc/gshadow
+,,,
+INITIAL,LOGINS,# check last logins,
+,,,lastlog
+,,,
+,,,
+INITIAL,LOGINS,rbash,
+,,,sudo useradd -m <USERNAME> -s /bin/rbash && sudo passwd <USERNAME>
+,,,sudo mkdir /home/<USERNAME>/bin && sudo ln -s /bin/mkdir /home/<USERNAME>/bin && sudo ln -s /bin/ls /home/<USERNAME>/bin && sudo ln -s /bin/ssh /home/<USERNAME>/bin && sudo -u <USERNAME> -s
+,,,su -
+,,,sudo chown root. /home/<USERNAME>/.profile && sudo chmod 755 /home/<USERNAME>/.profile
+,,,
+,,,
+,,,
+ONGOING,LOGINS,Last login data,
+,,,last
+,,,lastlog
+,,,cp /var/log/*tmp* /media/logs
+,,,
+,,,
+,,,
+ONGOING,LOGINS,Find accts w/ null password,
+,,,"awk -F: '($2 == """") {print $1}' /etc/shadow"
+,,,
+ONGOING,LOGINS,Sort password file by UID (confirm acct creation order),
+,,,sort -nk3 -t: /etc/passwd | less
+,,,
+ONGOING,LOGINS,Find duplicate UIDs,
+,,,cut -f3 -d: /etc/passwd | sort -n | uniq -c | awk '!/ 1 / {print $2}'
+,,,
+ONGOING,ROOT,Find root/superuser UID 0 accts (there should be only 1),
+,,,awk -F: '($3 == 0) {print $1}' /etc/passwd
+,,,egrep ':0+:' /etc/passwd
+,,,
+ONGOING,LOGINS,Get accts w/o password,
+,,,cat /etc/passwd | awk -F: 'length($2)<1 {print $1}'
+,,,
+,,,
+ONGOING,LOGINS,Check login logs,
+,,,Successful: cat /var/log/wtmp
+,,,Unsuccessful: cat /var/log/btmp
+,,,
+,,,
+MISC,LOGINS,Get USER info,
+,,,"#Info about me
+ id || (whoami && groups) 2>/dev/null
+ 
+ #List all users
+ cat /etc/passwd | cut -d: -f1
+ 
+ #List users with console
+ cat /etc/passwd | grep ""sh$""
+ 
+ #List superusers
+ awk -F: '($3 == ""0"") {print}' /etc/passwd
+ 
+ #Currently logged users
+ w
+ 
+ #Login history
+ last | tail
+ 
+ #Last log of each user
+ lastlog
+ 
+ #List all users and their groups
+ for i in $(cut -d"":"" -f1 /etc/passwd 2>/dev/null);do id $i;done 2>/dev/null | sort
+ 
+ #Current user PGP keys
+ gpg --list-keys 2>/dev/null"
+,,,
+,,,
+INITIAL,LOGINS,Get password policy,
+,,,"grep ""^PASS_MAX_DAYS\|^PASS_MIN_DAYS\|^PASS_WARN_AGE\|^ENCRYPT_METHOD"" /etc/login.defs"
+,,,
+,,,
+ONGOING,ROOT,Check if sudo config will allow a user to execure cmds w/o knowing a password,
+,,,sudo -l
+,,,
+,,,
+,,,
+INITIAL,ROOT,Change sudo token duration,
+,,,sudo visudo
+,,,"Change: ""Defaults env_reset"" to ""Defaults env_reset timestamp_timeout=0"""
+,,,
+INITIAL,LOGINS,"Lock user acct after ## failed login attempts using PAM_FAILLOCK (centos, fedora)",
+,,,sudo nano /etc/pam.d/system-auth
+,,,sudo nano /etc/pam.d/password-auth
+,,,
+,,,"Add lines, in ORDER:"
+,,,"auth required pam_env.so
+ auth required pam_faillock.so preauth silent audit deny=3 unlock_time=600
+ auth sufficient pam_unix.so nullok try_first_pass
+ auth [default=die] pam_faillock.so authfail audit deny=3 unlock_time=600
+ auth requisite pam_succeed_if.so uid >= 1000 quiet_success
+ auth required pam_deny.so"
+,,,
+,,,next…
+,,,
+,,,sudo nano /etc/pam.d/system-auth
+,,,sudo nano /etc/pam.d/password-auth
+,,,
+,,,"#%PAM-1.0
+ # This file is auto-generated.
+ # User changes will be destroyed the next time authconfig is run.
+ auth required pam_env.so
+ auth required pam_faillock.so preauth silent audit deny=3 unlock_time=600
+ auth sufficient pam_fprintd.so
+ auth sufficient pam_unix.so nullok try_first_pass
+ auth [default=die] pam_faillock.so authfail audit deny=3 unlock_time=600
+ auth requisite pam_succeed_if.so uid >= 1000 quiet
+ auth required pam_deny.so"
+,,,
+,,,"Then, the account section, add highlighted line:"
+,,,
+,,,"account required pam_unix.so
+ account sufficient pam_localuser.so
+ account sufficient pam_succeed_if.so uid < 500 quiet
+ account required pam_permit.so
+ account required pam_faillock.so"
+,,,
+,,,Restart ssh service
+,,,systemctl restart sshd
+,,,
+,,,View all unsuccessful login attempts
+,,,tail /var/log/secure
+,,,
+INITIAL,LOGINS,"Lock user acct after ## failed login attempts using PAM_FAILLOCK (debian, ubuntu)",
+,,,sudo nano /etc/pam.d/common-auth
+,,,
+,,,Add line as 1st rule:
+,,,auth required pam_tally2.so onerr=fail deny=3 unlock_time=600 audit
+,,,
+,,,Restart ssh service
+,,,systemctl restart sshd
+,,,
+,,,View all unsuccessful login attempts
+,,,tail /var/log/auth.log
+,,,
+,ROOT,Get files w/ specific ACLs from system,
+,,,getfacl -t -s -R -p /bin /etc /home /opt /root /sbin /usr /tmp 2>/dev/null
+,,,
+INITIAL,ROOT,Set /etc/passwd and /etc/shadow to 000,
+,,,sudo chown root:rootw /etc/passwd
+,,,sudo chown root:rootw /etc/shadow
+,,,sudo chmod 000 /etc/passwd
+,,,sudo chmod 000 /etc/shadow
+,,,
+ONGOING,LOGINS,Linux list user names only,
+,,,$ awk -F':' '{ print $1}' /etc/passwd
+,,,
+INITIAL,ROOT,Who can execute root cmds?,
+,,,cat /etc/sudoers
+,,,find / -perm -04000
+,,,
+,,,
+INITIAL,LOGINS,To list all users and the groups they are members of:,
+,,,getent passwd | cut -d : -f 1 | xargs groups
+,,,
+,,,
+ONGOING,GROUPS,How to Add an Existing User to a Group,
+,,,sudo usermod -a -G groupname username
+,,,
+ONGOING,GROUPS,How to Add an Existing User to Multiple Groups in One Command,
+,,,"sudo usermod -a -G group1,group2 username"
+,,,
+INITIAL,GROUPS,How to Remove a User From a Group,
+,,,sudo gpasswd -d username groupname
+,,,
+ONGOING,GROUPS,How to Create a Group,
+,,,sudo groupadd groupname
+,,,
+ONGOING,GROUPS,How to Delete a Group,
+,,,sudo groupdel groupname
+,,,
+ONGOING,GROUPS,How to Change a User’s Primary Group,
+,,,sudo usermod -g groupname username
+,,,
+ONGOING,GROUPS,How to Create a New User and Assign Groups in One Command,
+,,,"sudo useradd -g users -G wheel,developers nathan"
+,,,
+ONGOING,GROUPS,Display User Groups,
+,,,id username
+,,,"OUTPUT: uid=1000(username) gid=100(users) groups=100(users),10(wheel),95(storage),98(power),990(libvirt),993(docker),999(kvm)"
+,,,
+ONGOING,LOGINS,# showing the users set up on the machine,
+,,,sort /etc/passwd | cut -d ':' -f 1
+,,,
+ONGOING,LOGINS,kill all user sessions,
+,,,sudo for i in $(w | awk '{if (NR!=1) {print $2 }}' | tail -n +2); do pkill -9 -t $i; done
+,,,
+,,,
+INITIAL,LOGINS,change every non-system/admin/root user password to <STRONG PASSWORD> and erase the history to prevent red from seeing it,
+,,,"while IFS=: read u x nn rest; do if [ $nn -ge 500 ]; then echo ""YOURSTRONGPASSWORD"" |passwd --stdin $u; fi done < /etc/passwd; history -c"
+,,,
+ONGOING,TRAFFIC,# gather some traffic,
+,,,tcpdump -i eth0 not port 22 -vvvvAe -c 500
+,,,
+ONGOING,LOGS,# show which logs have been used most recently,
+,,,ls -altr /var/log
+,,,
+ONGOING,DATABASE,# show which mysql files have been used most recently,
+,,,ls -Raltr /var/lib/mysql
+,,,
+ONGOING,LOGS,# show the end of the system log,
+,,,tail -n 1000 /var/log/messages
+,,,
+ONGOING,CONFIG,# display info about apache config files,
+,,,ls -Raltr /etc/httpd/conf
+,,,
+ONGOING,CONNECTIONS,# show anything that is being exported over NFS,
+,,,cat /etc/exports
+,,,
+ONGOING,VM,# check to see if we are using any virtual machines,
+,,,virsh list --all
+,,,
+ONGOING,FIREWALL,# dump the currently running set of iptables rules,
+,,,iptables -L
+,,,
+ONGOING,ROUTE,# show the routing table,
+,,,route -n
+,,,
+ONGOING,PORTS,Open,
+,,,sudo nano /etc/services
+,,,add line: <SERVICE> <PORT>/<TCP or UDP>
+,,,
+,,,iptables-save | grep <PORT #> -A IN_public_allow -p tcp -m tcp --dport <PORT#> -m conntrack --ctstate NEW -j ACCEPT
+,,,
+,,,
+ONGOING,BANNER,Pre-Login,
+,,,sudo nano /etc/login.warn
+,,,Modify to meet requirement
+,,,sudo nano /etc/sshd/sshd_config
+,,,#Banner none -->>> Banner /etc/login.warn
+,,,systemctl restart sshd
+,,,
+,,Logged in,
+,,,sudo nano /etc/motd
+,,,
+ONGOING,MAIL,# check status of sendmail server,
+,,,ls -altr /var/spool/mail
+,,,
+ONGOING,MAIL,# check local hostnames for which sendmail server is receiving mail,
+,,,cat /etc/mail/local-host-names
